@@ -1,0 +1,17 @@
+default:
+  suites:
+    default:
+      contexts:
+        - FeatureContext
+        - Drupal\DrupalExtension\Context\DrupalContext
+        - Drupal\DrupalExtension\Context\MinkContext
+        - Drupal\DrupalExtension\Context\MessageContext
+        - Drupal\DrupalExtension\Context\DrushContext
+  extensions:
+    Behat\MinkExtension:
+      goutte: ~
+      selenium2: 
+          capabilities: { "browserName":"chrome","browser":"chrome","chrome": {"switches": ["--disable-translate", "--headless"]}}
+      base_url: https://beta.soundtransit.org
+    Drupal\DrupalExtension:
+      blackbox: ~
