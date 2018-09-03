@@ -75,22 +75,34 @@ class FeatureContext extends RawDrupalContext implements SnippetAcceptingContext
      */
     public function iGoToAndVisitEachLinkToVerifyThereAreNoS($arg1)
     {
+        //go to the first page
         $this->getSession()->visit($this->getMinkParameter('base_url').$arg1);
+        //make record that the first page was visited
         $visited = array($arg1 => $this->getSession()->getCurrentUrl());
+        //get unique links to visit for first pass
         $toVisit = $this->getUniqueInternalHrefs($visited);
+        //array to track 404s
         $pagesNotFound = array();
         
+        //check each page for 404 message until there are no more unique urls to check
         do {
+            //array to track links found while going through a pass
             $foundWhileVisiting = array();
+            //for each unique url found
             foreach($toVisit as $url => $referrer) {
                 print("ANCHOR $url FROM $referrer\r\n");
+                //visit the page
                 $this->getSession()->visit($this->getMinkParameter('base_url').$url);
+                //check for 404
                 if($this->getSession()->getPage()->has('xpath', '//div[contains(text(),"The requested page could not be found.")]')) {
                    $pagesNotFound[$url] = $referrer;
                 }
+                //check for links that haven't been visited
                 $foundWhileVisiting = array_merge($foundWhileVisiting,$this->getUniqueInternalHrefs(array_merge($visited, $toVisit, $foundWhileVisiting)));
             }
+            //save off links visited in last pass
             $visited = array_merge($visited,$toVisit);
+            //visit the set of links found while visiting the last pass
             $toVisit = $foundWhileVisiting;
         } while(count($toVisit));
         
@@ -104,6 +116,11 @@ class FeatureContext extends RawDrupalContext implements SnippetAcceptingContext
         }
     }
     
+    /**
+     * 
+     * @param type $visited - array of urls that have already been accounted for, where the key is the url, and the value is the referral page.
+     * @return type
+     */
     private function getUniqueInternalHrefs($visited) {
         $currentUrl = $this->getSession()->getCurrentUrl();
         $foundUniqueInternalHrefs = array();
