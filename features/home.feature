@@ -9,3 +9,6 @@ Scenario: Verify Global Search
 Scenario: Verify no page not found errors
     Given I am on "/"
     And I visit each link to verify no page not found errors
+
+Scenario: Verify valid urls
+    Given I go to "/" and visit each link to verify there are no 404s

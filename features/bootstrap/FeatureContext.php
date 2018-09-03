@@ -70,37 +70,29 @@ class FeatureContext extends RawDrupalContext implements SnippetAcceptingContext
           });
     }
     
-    /**
-     * @Given I visit each link to verify no page not found errors
+     /**
+     * @Given I go to :arg1 and visit each link to verify there are no 404s
      */
-    public function iVisitEachLinkToVerifyNoPageNotFoundErrors()
+    public function iGoToAndVisitEachLinkToVerifyThereAreNoS($arg1)
     {
-        $anchorsToVisit = array();
-        $anchorsFound = array();
+        $this->getSession()->visit($this->getMinkParameter('base_url').$arg1);
+        $visited = array($arg1 => $this->getSession()->getCurrentUrl());
+        $toVisit = $this->getUniqueInternalHrefs($visited);
         $pagesNotFound = array();
-        $this->getUniqueInternalHrefs($anchorsToVisit);
         
-        //FIRST PASS THROUGH ANCHORS ON CURRENT PAGE
-        foreach($anchorsToVisit as $url => $referrer) {
-            print("ANCHOR $url FROM $referrer TO VISIT\r\n");
-            $this->getSession()->visit('https://beta.soundtransit.org'.$url);
-            
-            if($this->getSession()->getPage()->has('xpath', '//div[contains(text(),"The requested page could not be found.")]')) {
-                $pagesNotFound[$url] = $referrer;
+        do {
+            $foundWhileVisiting = array();
+            foreach($toVisit as $url => $referrer) {
+                print("ANCHOR $url FROM $referrer\r\n");
+                $this->getSession()->visit($this->getMinkParameter('base_url').$url);
+                if($this->getSession()->getPage()->has('xpath', '//div[contains(text(),"The requested page could not be found.")]')) {
+                   $pagesNotFound[$url] = $referrer;
+                }
+                $foundWhileVisiting = array_merge($foundWhileVisiting,$this->getUniqueInternalHrefs(array_merge($visited, $toVisit, $foundWhileVisiting)));
             }
-            
-            $this->getUniqueInternalHrefs($anchorsFound, $anchorsToVisit);
-        }
-        
-        //SECOND PASS THROUGH ANCHORS FOUND IN FIRST PASS
-        foreach($anchorsFound as $url => $referrer) {
-            print("ANCHOR $url FROM $referrer FOUND\r\n");
-            $this->getSession()->visit('https://beta.soundtransit.org'.$url);
-            
-            if($this->getSession()->getPage()->has('xpath', '//div[contains(text(),"The requested page could not be found.")]')) {
-                $pagesNotFound[$url] = $referrer;
-            }
-        }
+            $visited = array_merge($visited,$toVisit);
+            $toVisit = $foundWhileVisiting;
+        } while(count($toVisit));
         
         //CHECK FOR PAGES NOT FOUND
         if(count($pagesNotFound)) {
@@ -110,8 +102,63 @@ class FeatureContext extends RawDrupalContext implements SnippetAcceptingContext
             
             throw new Exception("SOME PAGES WERE NOT FOUND. SEE ABOVE FOR LIST.");
         }
-        
     }
+    
+    private function getUniqueInternalHrefs($visited) {
+        $currentUrl = $this->getSession()->getCurrentUrl();
+        $foundUniqueInternalHrefs = array();
+        $internalLinks = $this->getSession()->getPage()->findAll('css','a[href^="/"]');
+        
+        foreach ($internalLinks as $internalLink) {
+            $href = $internalLink->getAttribute("href");
+            if(!array_key_exists($href,$visited)) {
+                $foundUniqueInternalHrefs[$href] = $currentUrl;
+            }
+        }    
+        
+        return $foundUniqueInternalHrefs;
+    }
+    
+    
+//    public function iVisitEachLinkToVerifyNoPageNotFoundErrors()
+//    {
+//        $anchorsToVisit = array();
+//        $anchorsFound = array();
+//        $pagesNotFound = array();
+//        $this->getUniqueInternalHrefs($anchorsToVisit);
+//        
+//        //FIRST PASS THROUGH ANCHORS ON CURRENT PAGE
+//        foreach($anchorsToVisit as $url => $referrer) {
+//            print("ANCHOR $url FROM $referrer TO VISIT\r\n");
+//            $this->getSession()->visit('https://beta.soundtransit.org'.$url);
+//            
+//            if($this->getSession()->getPage()->has('xpath', '//div[contains(text(),"The requested page could not be found.")]')) {
+//                $pagesNotFound[$url] = $referrer;
+//            }
+//            
+//            $this->getUniqueInternalHrefs($anchorsFound, $anchorsToVisit);
+//        }
+//        
+//        //SECOND PASS THROUGH ANCHORS FOUND IN FIRST PASS
+//        foreach($anchorsFound as $url => $referrer) {
+//            print("ANCHOR $url FROM $referrer FOUND\r\n");
+//            $this->getSession()->visit('https://beta.soundtransit.org'.$url);
+//            
+//            if($this->getSession()->getPage()->has('xpath', '//div[contains(text(),"The requested page could not be found.")]')) {
+//                $pagesNotFound[$url] = $referrer;
+//            }
+//        }
+//        
+//        //CHECK FOR PAGES NOT FOUND
+//        if(count($pagesNotFound)) {
+//            foreach($pagesNotFound as $url => $referrer) {
+//                print("PAGE NOT FOUND: $url FROM: $referrer\r\n");
+//            }
+//            
+//            throw new Exception("SOME PAGES WERE NOT FOUND. SEE ABOVE FOR LIST.");
+//        }
+//        
+//    }
     
     /**
      * Store links found on the page, beginning with "/", if they haven't been stored already.
@@ -119,15 +166,15 @@ class FeatureContext extends RawDrupalContext implements SnippetAcceptingContext
      * @param type $anchors
      * @param type $moreAnchors
      */
-    private function getUniqueInternalHrefs(&$anchors,$moreAnchors=array()) {
-        $links = $this->getSession()->getPage()->findAll('css','a[href^="/"]');
-        $currentUrl = $this->getSession()->getCurrentUrl();
-        foreach ($links as $link) {
-            $href = $link->getAttribute("href");
-            if(!array_key_exists($href,$anchors) && !array_key_exists($href,$moreAnchors)) {
-                $anchors[$href] = $currentUrl;
-            }
-        }        
-    }
+//    private function getUniqueInternalHrefs(&$anchors,$moreAnchors=array()) {
+//        $links = $this->getSession()->getPage()->findAll('css','a[href^="/"]');
+//        $currentUrl = $this->getSession()->getCurrentUrl();
+//        foreach ($links as $link) {
+//            $href = $link->getAttribute("href");
+//            if(!array_key_exists($href,$anchors) && !array_key_exists($href,$moreAnchors)) {
+//                $anchors[$href] = $currentUrl;
+//            }
+//        }        
+//    }
 
 }
